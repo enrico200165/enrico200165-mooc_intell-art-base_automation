@@ -82,7 +82,7 @@ def durata_video_min_sec(file_video):
 # Leggi i valori dalla colonna specificata
 
 
-def elabora_spreadsheet_fnames(file_spreadsheet, source_dir):
+def elabora_spreadsheet_fnames(file_spreadsheet, source_dir, col_fname):
 
     titolo_corso, valori = leggi_valori(file_spreadsheet, foglio, colonna_da_leggere, riga_iniziale)
 
@@ -94,7 +94,7 @@ def elabora_spreadsheet_fnames(file_spreadsheet, source_dir):
     for index, row in valori.iterrows():
         # for i in range(row.size): print(row.iloc[index], end= ", ")
 
-        fname_no_ext = row[4]
+        fname_no_ext = row[col_fname]
         if pd.isnull(fname_no_ext):  # Verifica se il valore non è vuoto
            continue
 
@@ -109,6 +109,11 @@ def elabora_spreadsheet_fnames(file_spreadsheet, source_dir):
         if not os.path.isfile(file_da_copiare):
             # print(f"index {index} - {file_da_copiare} non è un file")
             missing_files_l.append(source_fname)
+            continue
+
+        includi = int(row[9])
+        if includi == 0:
+            print(f"escluso {source_fname}")
             continue
 
         if file_da_copiare.endswith(".pdf"):
@@ -150,13 +155,14 @@ def post_proc(copia_files, file_spreadsheet, source_dir, source_dest_l, missing_
     if (len(missing_files_l)) <= 0:
         for s,d in source_dest_l:
             source = os.path.join(source_dir,s)
-            print(f"copy {s} -> {d}")
             dest = os.path.join(DIRECTORY_DEST,d)
             if copia_files:
-                copia_file(source, dest)
+                print(f"copy {s} -> {d}")
                 print(f"\nCOPIO\n{source} -> \n{dest}")
+                copia_file(source, dest)
             else:
-                print(f"\nNON copy\n{source} -> \n{dest}")
+                # print(f"\nNON copy\n{source} -> \n{dest}")
+                pass
 
     total_time_str = str(datetime.timedelta(seconds=total_video_time_sec))
     print(f"tempo totale dei video: {total_time_str}")
@@ -164,9 +170,9 @@ def post_proc(copia_files, file_spreadsheet, source_dir, source_dest_l, missing_
 
 
 # mia directory personale
-# source_dest_l, missing_files_l, total_video_time_sec = elabora_spreadsheet_fnames(file_spreadsheet_pers, DIRECTORY_SOURCE_EV)
-# post_proc(False, file_spreadsheet_pers, DIRECTORY_SOURCE_EV, source_dest_l, missing_files_l, total_video_time_sec)
+source_dest_l, missing_files_l, total_video_time_sec = elabora_spreadsheet_fnames(file_spreadsheet_pers, DIRECTORY_SOURCE_EV, 7)
+post_proc(False, file_spreadsheet_pers, DIRECTORY_SOURCE_EV, source_dest_l, missing_files_l, total_video_time_sec)
 
 # copia da deliverare
-source_dest_l, missing_files_l, total_video_time_sec = elabora_spreadsheet_fnames(file_spreadsheet_pers, DIRECTORY_SOURCE_DLV)
-post_proc(False, file_spreadsheet_dlv, DIRECTORY_SOURCE_DLV, source_dest_l, missing_files_l, total_video_time_sec)
+# source_dest_l, missing_files_l, total_video_time_sec = elabora_spreadsheet_fnames(file_spreadsheet_pers, DIRECTORY_SOURCE_DLV, 4)
+# post_proc(False, file_spreadsheet_dlv, DIRECTORY_SOURCE_DLV, source_dest_l, missing_files_l, total_video_time_sec)

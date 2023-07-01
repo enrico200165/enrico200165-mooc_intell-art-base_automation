@@ -103,7 +103,12 @@ def elabora_spreadsheet_fnames(file_spreadsheet, source_dir, col_fname):
             print(f"'{tipo}' tipo file inatteso, ignoro")
             continue
 
-        source_fname = fname_no_ext+"."+EXTS[tipo]
+        source_fname = fname_no_ext
+        if len(source_fname.split(".")) < 2:
+            print("# file senza estensione, la aggiungo: {}")
+            source_fname = source_fname+"."+EXTS[tipo]
+            print("#"*5, f"file senza estensione, la aggiungo: {source_fname}")
+
 
         file_da_copiare = os.path.join(source_dir, source_fname)
         if not os.path.isfile(file_da_copiare):

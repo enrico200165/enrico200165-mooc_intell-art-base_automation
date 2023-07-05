@@ -16,8 +16,8 @@ foglio = "Int. Art - Base_Enrico-Viali"
 # "Nome File ([nomeCorso]_lez[NumLezione]_parte[NumParte])"
 colonna_da_leggere = 4
 riga_iniziale = 5
-DIRECTORY_SOURCE_EV  = r"D:\data_ENRICO\MOOC_video_master\delivery\delivery_ev"
-DIRECTORY_SOURCE_DLV = r"D:\data_ENRICO\MOOC_video_master\delivery\out_Intelligenza artificiale base"
+DIRECTORY_SOURCE_EV  = r"D:\data_ENRICO\MOOC_master\delivery"
+#DIRECTORY_SOURCE_DLV = r"D:\data_ENRICO\MOOC_master\delivery\out_Intelligenza artificiale base"
 DIRECTORY_DEST = r"D:\temp"
 
 SEP_FNAME = "_"
@@ -88,6 +88,7 @@ def elabora_spreadsheet_fnames(file_spreadsheet, source_dir, col_fname):
 
     total_video_time_sec = 0
 
+    files_trovati = 0
     source_dest_l = []
     missing_files_l = []
 
@@ -115,6 +116,8 @@ def elabora_spreadsheet_fnames(file_spreadsheet, source_dir, col_fname):
             # print(f"index {index} - {file_da_copiare} non è un file")
             missing_files_l.append(source_fname)
             continue
+
+        files_trovati +=1
 
         includi = int(row[9])
         if includi == 0:
@@ -145,7 +148,7 @@ def elabora_spreadsheet_fnames(file_spreadsheet, source_dir, col_fname):
         # print(f"\n\n{source_fname}\n{fname_short}")
         source_dest_l.append( [source_fname, fname_short] )
 
-    return source_dest_l, missing_files_l, total_video_time_sec
+    return source_dest_l, missing_files_l, total_video_time_sec, files_trovati
 
 
 def post_proc(copia_files, file_spreadsheet, source_dir, source_dest_l, missing_files_l, total_video_time_sec):
@@ -155,9 +158,9 @@ def post_proc(copia_files, file_spreadsheet, source_dir, source_dest_l, missing_
     if (len(missing_files_l)) > 0:
         print(f"{len(missing_files_l)} missing files in dir: {source_dir}")
         for e in missing_files_l:
-            print(f"{e} not found")
-
-    if (len(missing_files_l)) <= 0:
+            print(f"{e} not found in {source_dir}")
+    else:
+        print("OK, trovati tutti i files")
         for s,d in source_dest_l:
             source = os.path.join(source_dir,s)
             dest = os.path.join(DIRECTORY_DEST,d)
@@ -175,9 +178,9 @@ def post_proc(copia_files, file_spreadsheet, source_dir, source_dest_l, missing_
 
 
 # mia directory personale
-source_dest_l, missing_files_l, total_video_time_sec = elabora_spreadsheet_fnames(file_spreadsheet_pers, DIRECTORY_SOURCE_EV, 7)
+source_dest_l, missing_files_l, total_video_time_sec, trovati = elabora_spreadsheet_fnames(file_spreadsheet_pers, DIRECTORY_SOURCE_EV, 7)
 post_proc(False, file_spreadsheet_pers, DIRECTORY_SOURCE_EV, source_dest_l, missing_files_l, total_video_time_sec)
-
+print(f"files trovati: {trovati}")
 # copia da deliverare
 # source_dest_l, missing_files_l, total_video_time_sec = elabora_spreadsheet_fnames(file_spreadsheet_pers, DIRECTORY_SOURCE_DLV, 4)
 # post_proc(False, file_spreadsheet_dlv, DIRECTORY_SOURCE_DLV, source_dest_l, missing_files_l, total_video_time_sec)

@@ -10,23 +10,20 @@ from PyPDF2 import PdfFileReader
 from moviepy.editor import VideoFileClip
 
 
+DIRECTORY = r"D:\MOOC_Intell-Art ASP. Pratici\delivery"
+
+
 # Impostazioni del programma
-file_spreadsheet_pers = r"D:\00_data\gdrive\galilei-mirror\gare_progetti_etc\lavoro\meta-learning\Sceneggiatura_MOOC_IA_aspetti-pratici_step3.xlsx"
-# file_spreadsheet_dlv = r"D:\data_ENRICO\MOOC_video_master\delivery\out_Intelligenza artificiale base\02_Sceneggiatura_MOOC_enrico-viali.xlsx"
-
-# foglio = "Int. Art - Base_Enrico-Viali"
+file_spreadsheet_pers = os.path.join("00_Sceneggiatura_MOOC_IA_aspetti-pratici.xlsx")
 foglio = "Int. artific. aspetti pratici"
-
 
 # "Nome File ([nomeCorso]_lez[NumLezione]_parte[NumParte])"
 colonna_da_leggere = 3
 NR_RIGA_INIZIO_DATI = 6
-DIRECTORY_SOURCE_EV  = r"D:\MOOC_Intell-Art ASP. Pratici\delivery_prev"
+DIRECTORY_SOURCE_EV  = r"D:\MOOC_Intell-Art ASP. Pratici\delivery"
 #DIRECTORY_SOURCE_DLV = r"D:\data_ENRICO\MOOC_master\delivery\out_Intelligenza artificiale base"
 
-DIRECTORY_DEST = r"D:\MOOC_Intell-Art ASP. Pratici\delivery_new"
-DIRECTORY_DEST = r"D:\MOOC_Intell-Art ASP. Pratici\delivery_LONG-LESSONS"
-
+DIRECTORY = r"D:\MOOC_Intell-Art ASP. Pratici\delivery"
 
 NR_COL_FNAME = 5 # dovrebbe essere normale
 NR_COL_FNAME = 7 # mio spreadsheet modificato
@@ -198,7 +195,7 @@ def post_proc(copia_files, file_spreadsheet, source_dir, source_dest_l, missing_
         print("OK, trovati tutti i files")
         for s,d in source_dest_l:
             source = os.path.join(source_dir,s)
-            dest = os.path.join(DIRECTORY_DEST,d)
+            dest = os.path.join(DIRECTORY,d)
             if copia_files:
                 print(f"copy {s} -> {d}")
                 print(f"\nCOPIO\n{source} -> \n{dest}")
@@ -294,7 +291,8 @@ def controlla_presenza_files(file_spreadsheet, col_fname, source_dir):
         print(f"non trovata dir {source_dir}")
         return
 
-    _ , valori = leggi_valori(file_spreadsheet, foglio, colonna_da_leggere, NR_RIGA_INIZIO_DATI)
+    _ , valori = leggi_valori(file_spreadsheet, foglio, colonna_da_leggere, 
+                              NR_RIGA_INIZIO_DATI)
 
     for index, row in valori.iterrows():
         # for i in range(row.size): print(row.iloc[index], end= ", ")
@@ -315,7 +313,7 @@ def controlla_presenza_files(file_spreadsheet, col_fname, source_dir):
         dest_fname = os.path.join(source_dir, dest_fname)
 
         if not os.path.isfile(dest_fname):
-            print("\n\n"+"#"*10+f"ERRORE non trovato: \n{os.path.basename(dest_fname)}"+"\n\n")
+            print("\n"+"#"*10+f" ERRORE non trovato: \n{os.path.basename(dest_fname)}"+"\n")
             nr_file_non_trovati += 1
         else:
             # print(f"ok trovato: {dest_fname}")
@@ -325,19 +323,13 @@ def controlla_presenza_files(file_spreadsheet, col_fname, source_dir):
 
 
 
-#file_spreadsheet_pers = r"D:\MOOC_Intell-Art ASP. Pratici\delivery_new\00_Sceneggiatura_MOOC_IA_aspetti-pratici.xlsx"
-
-file_spreadsheet_pers = r"D:\MOOC_Intell-Art ASP. Pratici\delivery_LONG-LESSONS\00_Sceneggiatura_MOOC_IA_aspetti-pratici.xlsx"
-
-
-# copia_vecchio_fname_nuovo(file_spreadsheet_pers, DIRECTORY_SOURCE_EV, DIRECTORY_DEST, NR_COL_FNAME)
-
 if True:
-    trovati, non_trovati = controlla_presenza_files(file_spreadsheet_pers,NR_COL_FNAME, DIRECTORY_DEST)
+    trovati, non_trovati = controlla_presenza_files(file_spreadsheet_pers,
+        NR_COL_FNAME, DIRECTORY)
     print(f"trovati: {trovati} non trovati: {non_trovati}")
 
 if False:
-    source_dest_l, missing_files_l, total_video_time_sec, trovati = elabora_spreadsheet_fnames(file_spreadsheet_pers, DIRECTORY_DEST, NR_COL_FNAME)
+    source_dest_l, missing_files_l, total_video_time_sec, trovati = elabora_spreadsheet_fnames(file_spreadsheet_pers, DIRECTORY, NR_COL_FNAME)
     post_proc(False, file_spreadsheet_pers, DIRECTORY_SOURCE_EV, source_dest_l, missing_files_l, total_video_time_sec)
 # copia da deliverare
 # source_dest_l, missing_files_l, total_video_time_sec = elabora_spreadsheet_fnames(file_spreadsheet_pers, DIRECTORY_SOURCE_DLV, 4)

@@ -6,7 +6,7 @@ import time
 import datetime
 import shutil
 
-from PyPDF2 import PdfFileReader
+from PyPDF2 import PdfReader
 from moviepy.editor import VideoFileClip
 
 
@@ -14,12 +14,12 @@ DIRECTORY = r"D:\MOOC_Intell-Art ASP. Pratici\delivery"
 
 
 # Impostazioni del programma
-file_spreadsheet_pers = os.path.join("00_Sceneggiatura_MOOC_IA_aspetti-pratici.xlsx")
+file_spreadsheet_pers = os.path.join(DIRECTORY,"00_Sceneggiatura_MOOC_IA_aspetti-pratici.xlsx")
 foglio = "Int. artific. aspetti pratici"
 
 # "Nome File ([nomeCorso]_lez[NumLezione]_parte[NumParte])"
 colonna_da_leggere = 3
-NR_RIGA_INIZIO_DATI = 6
+NR_RIGA_INIZIO_DATI = 8
 DIRECTORY_SOURCE_EV  = r"D:\MOOC_Intell-Art ASP. Pratici\delivery"
 #DIRECTORY_SOURCE_DLV = r"D:\data_ENRICO\MOOC_master\delivery\out_Intelligenza artificiale base"
 
@@ -38,12 +38,14 @@ QUIZ = "Quiz"
 VIDEO = "Video"
 DOCX = "docx"
 XML = "xml"
+MBZ = "mbz"
 
 FILES_ATTESI_L = [SLIDES, VIDEO, QUIZ, DOCX, XML, "mbz", "xlsx" , "pdf" ]
 
 
 # per appendere estensione giusta
-EXTS = {SLIDES: "pdf", VIDEO: "mp4", QUIZ: "xlsx"}
+EXTS = {SLIDES: "pdf", VIDEO: "mp4", QUIZ: "xlsx", DOCX: "docx", MBZ: MBZ, 
+        "pdf": "pdf", "xml": "xml"}
 
 FNAME1_COL = 4
 
@@ -93,8 +95,8 @@ def copia_file(file_origine, directory_destinazione, simula = True):
 def numero_pagine_pdf(file_pdf):
     # Funzione per ottenere il numero di pagine di un file PDF
     with open(file_pdf, "rb") as f:
-        pdf = PdfFileReader(f, strict=False)
-        numero_pagine = pdf.getNumPages()
+        pdf_reader = PdfReader(f, strict=False)
+        numero_pagine = len(pdf_reader.pages)
 
     return numero_pagine
 
@@ -110,7 +112,10 @@ def durata_video(file_video):
 def durata_video_min_sec(file_video):
     durata = durata_video(file_video)
 
-    return int(durata//60), int(durata % 60)
+    minuti = int(durata//60)
+    secondi = (durata % 60)/60
+
+    return minuti+secondi
 
 
 # Leggi i valori dalla colonna specificata
@@ -122,9 +127,18 @@ def elabora_spreadsheet_fnames(file_spreadsheet, source_dir, col_dest_fname):
 
     total_video_time_sec = 0; files_trovati = 0; source_dest_l = []; missing_files_l = []
 
-
+    durate_video_lezioni = []
+    nr_lezione = 0 
+    nr_lezione_prev = -1
     for index, row in valori.iterrows():
         # for i in range(row.size): print(row.iloc[index], end= ", ")
+
+        if row[0] is not None and type(row[0]) == str and len(str(row[0])) > 0:
+            nr_lezione = int(row[0])
+        if nr_lezione > nr_lezione_prev:
+            durate_video_lezioni.append(0)
+            nr_lezione_prev = nr_lezione
+
 
         fname_no_ext = row[col_dest_fname]
         if pd.isnull(fname_no_ext):  # Verifica se il valore non è vuoto
@@ -160,11 +174,11 @@ def elabora_spreadsheet_fnames(file_spreadsheet, source_dir, col_dest_fname):
             numero_pagine = numero_pagine_pdf(file_da_copiare)
             # print(f"Il file '{fname_no_ext}' è un PDF con {numero_pagine} pagine.")
         elif file_da_copiare.endswith((".mp4", ".avi", ".mov")):
-            durata_sec = durata_video(file_da_copiare)
-            total_video_time_sec += durata_sec
+            minuti = durata_video_min_sec(file_da_copiare)
+            total_video_time_sec += minuti
+            durate_video_lezioni[-1] += minuti
             # print(f"Il file '{fname_no_ext}' è un video con durata {durata} secondi.")
 
-            min, secs = durata_video_min_sec(file_da_copiare)
             # print(f"Il file '{fname_no_ext}' è un video con durata min:secs {min}:{secs} ")
 
         components = fname_no_ext.split(SEP_FNAME)
@@ -179,6 +193,9 @@ def elabora_spreadsheet_fnames(file_spreadsheet, source_dir, col_dest_fname):
         fname_short = titolo_corso+SEP_FNAME+lezione+SEP_FNAME+parte+"."+EXTS[tipo]
         # print(f"\n\n{source_fname}\n{fname_short}")
         source_dest_l.append( [source_fname, fname_short] )
+
+    for lez, durata in enumerate(durate_video_lezioni):
+        print(f"lez {lez} durate {durata}")
 
     return source_dest_l, missing_files_l, total_video_time_sec, files_trovati
 
@@ -288,14 +305,23 @@ def controlla_presenza_files(file_spreadsheet, col_fname, source_dir):
     nr_file_trovati = nr_file_non_trovati = 0
 
     if not os.path.isdir(source_dir):
-        print(f"non trovata dir {source_dir}")
+        print(f"non trovata dire {source_dir}")
         return
+
+    if not os.path.isfile(file_spreadsheet):
+        print(f"non trovato spreadsheet {file_spreadsheet}")
+        return
+
+    print(f"analizzo {file_spreadsheet}")    
 
     _ , valori = leggi_valori(file_spreadsheet, foglio, colonna_da_leggere, 
                               NR_RIGA_INIZIO_DATI)
 
     for index, row in valori.iterrows():
         # for i in range(row.size): print(row.iloc[index], end= ", ")
+
+        if row[0] is not None and type(row[0]) == str and len(str(row[0])) > 0:
+            lezione = int(row[0])
 
         dest_fname = row[col_fname]
         if pd.isnull(dest_fname):  # Verifica se il valore non è vuoto
@@ -313,10 +339,10 @@ def controlla_presenza_files(file_spreadsheet, col_fname, source_dir):
         dest_fname = os.path.join(source_dir, dest_fname)
 
         if not os.path.isfile(dest_fname):
-            print("\n"+"#"*10+f" ERRORE non trovato: \n{os.path.basename(dest_fname)}"+"\n")
+            print("\n"+"#"*10+f" {index}-esimo ERRORE non trovato: \n{os.path.basename(dest_fname)}"+"\n")
             nr_file_non_trovati += 1
         else:
-            # print(f"ok trovato: {dest_fname}")
+            # print(f"{index}- ok trovato: {dest_fname}")
             nr_file_trovati += 1
 
     return nr_file_trovati, nr_file_non_trovati
@@ -328,8 +354,10 @@ if True:
         NR_COL_FNAME, DIRECTORY)
     print(f"trovati: {trovati} non trovati: {non_trovati}")
 
-if False:
+if True:
     source_dest_l, missing_files_l, total_video_time_sec, trovati = elabora_spreadsheet_fnames(file_spreadsheet_pers, DIRECTORY, NR_COL_FNAME)
+    print(f"total video time: {total_video_time_sec}")
+if False:
     post_proc(False, file_spreadsheet_pers, DIRECTORY_SOURCE_EV, source_dest_l, missing_files_l, total_video_time_sec)
 # copia da deliverare
 # source_dest_l, missing_files_l, total_video_time_sec = elabora_spreadsheet_fnames(file_spreadsheet_pers, DIRECTORY_SOURCE_DLV, 4)

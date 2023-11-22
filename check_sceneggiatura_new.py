@@ -73,6 +73,7 @@ def copia_file(file_origine, directory_destinazione, simula = True):
     # Funzione per copiare un file da una directory all'altra
 
     ok = True
+
     if not os.path.isfile(file_origine):
         print(f"file da copiare {file_origine} non esiste")
         ok = False
@@ -129,15 +130,15 @@ def elabora_spreadsheet_fnames(file_spreadsheet, source_dir, col_dest_fname):
 
     durate_video_lezioni = []
     nr_lezione = 0 
-    nr_lezione_prev = -1
+    nr_lezione_prec = -1
     for index, row in valori.iterrows():
         # for i in range(row.size): print(row.iloc[index], end= ", ")
 
         if row[0] is not None and type(row[0]) == str and len(str(row[0])) > 0:
             nr_lezione = int(row[0])
-        if nr_lezione > nr_lezione_prev:
+        if nr_lezione > nr_lezione_prec:
             durate_video_lezioni.append(0)
-            nr_lezione_prev = nr_lezione
+            nr_lezione_prec = nr_lezione
 
 
         fname_no_ext = row[col_dest_fname]
@@ -307,6 +308,7 @@ def controlla_presenza_files(file_spreadsheet, col_fname, source_dir):
     if not os.path.isdir(source_dir):
         print(f"non trovata dire {source_dir}")
         return
+    files_estranei_in_dir = set(os.listdir(source_dir))
 
     if not os.path.isfile(file_spreadsheet):
         print(f"non trovato spreadsheet {file_spreadsheet}")
@@ -320,47 +322,65 @@ def controlla_presenza_files(file_spreadsheet, col_fname, source_dir):
     for index, row in valori.iterrows():
         # for i in range(row.size): print(row.iloc[index], end= ", ")
 
+        if row[0] is None or len(str(row[0])) <= 0:
+            continue
+
         if row[0] is not None and type(row[0]) == str and len(str(row[0])) > 0:
             lezione = int(row[0])
 
-        dest_fname = row[col_fname]
-        if pd.isnull(dest_fname):  # Verifica se il valore non è vuoto
+        fname = row[col_fname]
+        if pd.isnull(fname):  # Verifica se il valore non è vuoto
            continue
         tipo = row[NR_COL_TIPO_FILE]
         if not tipo in FILES_ATTESI_L or pd.isnull(tipo):
             print(f"'{tipo}' tipo file inatteso, ignoro")
             continue
 
-        if len(dest_fname.split(".")) < 2:
+        if len(fname.split(".")) < 2:
             print("# file senza estensione, la aggiungo: {}")
-            dest_fname = dest_fname+"."+EXTS[tipo]
-            print("#"*5, f"file senza estensione, la aggiungo: {dest_fname}")
+            fname = fname+"."+EXTS[tipo]
+            print("#"*5, f"file senza estensione, la aggiungo: {fname}")
         # print(f"file DEST trovato nello spreadsheet: {dest_fname}")
-        dest_fname = os.path.join(source_dir, dest_fname)
+        pathname = os.path.join(source_dir, fname)
 
-        if not os.path.isfile(dest_fname):
-            print("\n"+"#"*10+f" {index}-esimo ERRORE non trovato: \n{os.path.basename(dest_fname)}"+"\n")
+        if not os.path.isfile(pathname):
+            print("\n"+"#"*10+f" {index}-esimo ERRORE non trovato: \n{os.path.basename(pathname)}"+"\n")
             nr_file_non_trovati += 1
         else:
             # print(f"{index}- ok trovato: {dest_fname}")
             nr_file_trovati += 1
+            if fname in files_estranei_in_dir:
+                files_estranei_in_dir.remove(fname)
 
-    return nr_file_trovati, nr_file_non_trovati
+    return nr_file_trovati, nr_file_non_trovati, files_estranei_in_dir
 
 
+def main():
 
-if True:
-    trovati, non_trovati = controlla_presenza_files(file_spreadsheet_pers,
-        NR_COL_FNAME, DIRECTORY)
-    print(f"trovati: {trovati} non trovati: {non_trovati}")
+    if True:
+        trovati, non_trovati, estranei = controlla_presenza_files(file_spreadsheet_pers,
+            NR_COL_FNAME, DIRECTORY)
+        print(f"trovati: {trovati} non trovati: {non_trovati}")
+        print("files estranei:")
+        for f in estranei:
+            print(f"estraneo: {f}")
+            
 
-if True:
-    source_dest_l, missing_files_l, total_video_time_sec, trovati = elabora_spreadsheet_fnames(file_spreadsheet_pers, DIRECTORY, NR_COL_FNAME)
-    print(f"total video time: {total_video_time_sec}")
-if False:
-    post_proc(False, file_spreadsheet_pers, DIRECTORY_SOURCE_EV, source_dest_l, missing_files_l, total_video_time_sec)
-# copia da deliverare
-# source_dest_l, missing_files_l, total_video_time_sec = elabora_spreadsheet_fnames(file_spreadsheet_pers, DIRECTORY_SOURCE_DLV, 4)
-# post_proc(False, file_spreadsheet_dlv, DIRECTORY_SOURCE_DLV, source_dest_l, missing_files_l, total_video_time_sec)
+    if True:
+        source_dest_l, missing_files_l, total_video_time_sec, trovati = elabora_spreadsheet_fnames(file_spreadsheet_pers, DIRECTORY, NR_COL_FNAME)
+        print(f"total video time: {total_video_time_sec}")
+    if True:    
+        post_proc(False, file_spreadsheet_pers, DIRECTORY_SOURCE_EV, source_dest_l, missing_files_l, total_video_time_sec)
+    # copia da deliverare
+    # source_dest_l, missing_files_l, total_video_time_sec = elabora_spreadsheet_fnames(file_spreadsheet_pers, DIRECTORY_SOURCE_DLV, 4)
+    # post_proc(False, file_spreadsheet_dlv, DIRECTORY_SOURCE_DLV, source_dest_l, missing_files_l, total_video_time_sec)
 
-# print(f"files trovati: {trovati}")
+    # print(f"files trovati: {trovati}")
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except Exception as exc:
+        print(exc)
+        pass

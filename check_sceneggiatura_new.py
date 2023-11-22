@@ -4,93 +4,14 @@ import os
 import time
 
 import datetime
-import shutil
+
+import utils_little as ul
+import utils_excel as uxls
 
 from PyPDF2 import PdfReader
 from moviepy.editor import VideoFileClip
 
-
-DIRECTORY = r"D:\MOOC_Intell-Art ASP. Pratici\delivery"
-
-
-# Impostazioni del programma
-file_spreadsheet_pers = os.path.join(DIRECTORY,"00_Sceneggiatura_MOOC_IA_aspetti-pratici.xlsx")
-foglio = "Int. artific. aspetti pratici"
-
-# "Nome File ([nomeCorso]_lez[NumLezione]_parte[NumParte])"
-colonna_da_leggere = 3
-NR_RIGA_INIZIO_DATI = 8
-DIRECTORY_SOURCE_EV  = r"D:\MOOC_Intell-Art ASP. Pratici\delivery"
-#DIRECTORY_SOURCE_DLV = r"D:\data_ENRICO\MOOC_master\delivery\out_Intelligenza artificiale base"
-
-DIRECTORY = r"D:\MOOC_Intell-Art ASP. Pratici\delivery"
-
-NR_COL_FNAME = 5 # dovrebbe essere normale
-NR_COL_FNAME = 7 # mio spreadsheet modificato
-NR_COL_TIPO_FILE = NR_COL_FNAME+1
-
-SEP_FNAME = "_"
-
-NOME_CORSO = "Itelligenza Artificiale Base"
-
-SLIDES = "Slides pdf"
-QUIZ = "Quiz"
-VIDEO = "Video"
-DOCX = "docx"
-XML = "xml"
-MBZ = "mbz"
-
-FILES_ATTESI_L = [SLIDES, VIDEO, QUIZ, DOCX, XML, "mbz", "xlsx" , "pdf" ]
-
-
-# per appendere estensione giusta
-EXTS = {SLIDES: "pdf", VIDEO: "mp4", QUIZ: "xlsx", DOCX: "docx", MBZ: MBZ, 
-        "pdf": "pdf", "xml": "xml"}
-
-FNAME1_COL = 4
-
-
-def leggi_valori(nome_file, nome_foglio,  colonna, riga_iniziale):
-    # legge i valori di tutte le colonne piene
-    # ritorna ( titolo del corso , i valori dell compresi nella matrice dello spreadshee )
-
-    if not os.path.isfile(nome_file):
-        print(f"non trovato file: {nome_file}")
-        return None, None
-
-    # Leggi il file spreadsheet utilizzando pandas
-    df = pd.read_excel(nome_file, sheet_name=nome_foglio)
-
-    # Seleziona i valori della colonna specificata
-    valori_colonna = df.iloc[riga_iniziale:, :]
-    titolo = df.iloc[2][1]
-
-    return titolo, valori_colonna
-
-
-
-def copia_file(file_origine, directory_destinazione, simula = True):
-    # Funzione per copiare un file da una directory all'altra
-
-    ok = True
-
-    if not os.path.isfile(file_origine):
-        print(f"file da copiare {file_origine} non esiste")
-        ok = False
-    if not os.path.isdir(directory_destinazione):
-        print(f"directory destinazione {directory_destinazione} non esiste")
-        ok = False
-    if not ok:
-        return False
-
-    if simula:
-        print(f"simulo copia file: {file_origine} in directory: {directory_destinazione}")
-        return True
-    try:
-        shutil.copy(file_origine, directory_destinazione)
-        return True
-    except Exception as exc:
-        print(exc)
+import module_defs as mdefs
 
 
 def numero_pagine_pdf(file_pdf):
@@ -124,20 +45,22 @@ def durata_video_min_sec(file_video):
 
 def elabora_spreadsheet_fnames(file_spreadsheet, source_dir, col_dest_fname):
 
-    titolo_corso, valori = leggi_valori(file_spreadsheet, foglio, colonna_da_leggere, NR_RIGA_INIZIO_DATI)
+    titolo_corso, valori = uxls.leggi_valori_da_sheet(file_spreadsheet, mdefs.SYMBOL, 
+        mdefs.COLONNA_DA_LEGGER, mdefs.NR_RIGA_INIZIO_DATI)
 
     total_video_time_sec = 0; files_trovati = 0; source_dest_l = []; missing_files_l = []
 
     durate_video_lezioni = []
     nr_lezione = 0 
     nr_lezione_prec = -1
+
     for index, row in valori.iterrows():
         # for i in range(row.size): print(row.iloc[index], end= ", ")
 
         if row[0] is not None and type(row[0]) == str and len(str(row[0])) > 0:
             nr_lezione = int(row[0])
         if nr_lezione > nr_lezione_prec:
-            durate_video_lezioni.append(0)
+            durate_video_lezioni.append([0,[]])
             nr_lezione_prec = nr_lezione
 
 
@@ -145,15 +68,15 @@ def elabora_spreadsheet_fnames(file_spreadsheet, source_dir, col_dest_fname):
         if pd.isnull(fname_no_ext):  # Verifica se il valore non è vuoto
            continue
 
-        tipo = row[NR_COL_TIPO_FILE]
-        if not tipo in FILES_ATTESI_L or pd.isnull(tipo):
+        tipo = row[mdefs.NR_COL_TIPO_FILE]
+        if not tipo in mdefs.FILES_ATTESI_L or pd.isnull(tipo):
             print(f"'{tipo}' tipo file inatteso, ignoro")
             continue
 
         source_fname = fname_no_ext
         if len(source_fname.split(".")) < 2:
             print("# file senza estensione, la aggiungo: {}")
-            source_fname = source_fname+"."+EXTS[tipo]
+            source_fname = source_fname+"."+mdefs.EXTS[tipo]
             print("#"*5, f"file senza estensione, la aggiungo: {source_fname}")
 
 
@@ -171,18 +94,19 @@ def elabora_spreadsheet_fnames(file_spreadsheet, source_dir, col_dest_fname):
             print(f"escluso {source_fname}")
             continue
 
-        if file_da_copiare.endswith(".pdf"):
+        if source_fname.endswith(".pdf"):
             numero_pagine = numero_pagine_pdf(file_da_copiare)
             # print(f"Il file '{fname_no_ext}' è un PDF con {numero_pagine} pagine.")
-        elif file_da_copiare.endswith((".mp4", ".avi", ".mov")):
+        elif source_fname.endswith((".mp4", ".avi", ".mov")):
             minuti = durata_video_min_sec(file_da_copiare)
             total_video_time_sec += minuti
-            durate_video_lezioni[-1] += minuti
+            durate_video_lezioni[-1][0] += minuti # totale lezione
+            durate_video_lezioni[-1][1].append((source_fname, minuti))
             # print(f"Il file '{fname_no_ext}' è un video con durata {durata} secondi.")
 
             # print(f"Il file '{fname_no_ext}' è un video con durata min:secs {min}:{secs} ")
 
-        components = fname_no_ext.split(SEP_FNAME)
+        components = fname_no_ext.split(mdefs.SEP_FNAME)
         # for c in components: print(c, end = ", ")
 
         lezione_long =components[1]
@@ -191,14 +115,14 @@ def elabora_spreadsheet_fnames(file_spreadsheet, source_dir, col_dest_fname):
         parte = parte_long.split("-")[0]
         # print(f"{lezione_long} , {lezione}")
         # print(f"{parte_long} , {parte}")
-        fname_short = titolo_corso+SEP_FNAME+lezione+SEP_FNAME+parte+"."+EXTS[tipo]
+        fname_short = titolo_corso+mdefs.SEP_FNAME+lezione+mdefs.SEP_FNAME+parte+"."+mdefs.EXTS[tipo]
         # print(f"\n\n{source_fname}\n{fname_short}")
         source_dest_l.append( [source_fname, fname_short] )
 
     for lez, durata in enumerate(durate_video_lezioni):
-        print(f"lez {lez} durate {durata}")
+        print(f"lez {lez} durate {durata[0]}")
 
-    return source_dest_l, missing_files_l, total_video_time_sec, files_trovati
+    return source_dest_l, missing_files_l, total_video_time_sec, files_trovati, durate_video_lezioni
 
 
 def post_proc(copia_files, file_spreadsheet, source_dir, source_dest_l, missing_files_l, total_video_time_sec):
@@ -213,11 +137,11 @@ def post_proc(copia_files, file_spreadsheet, source_dir, source_dest_l, missing_
         print("OK, trovati tutti i files")
         for s,d in source_dest_l:
             source = os.path.join(source_dir,s)
-            dest = os.path.join(DIRECTORY,d)
+            dest = os.path.join(mdefs.DIRECTORY,d)
             if copia_files:
                 print(f"copy {s} -> {d}")
                 print(f"\nCOPIO\n{source} -> \n{dest}")
-                # copia_file(source, dest)
+                # ul.copia_file(source, dest)
             else:
                 # print(f"\nNON copy\n{source} -> \n{dest}")
                 pass
@@ -225,80 +149,6 @@ def post_proc(copia_files, file_spreadsheet, source_dir, source_dest_l, missing_
     total_time_str = str(datetime.timedelta(seconds=total_video_time_sec))
     print(f"tempo totale dei video: {total_time_str}")
     print(f"{file_spreadsheet} spreadsheet")
-
-
-
-def chiave_file(fname):
-    result = re.search(r"lez([\d]+)", fname)
-    if result is None:
-        print(f"WARNING: ignoro {fname}")
-        return None
-    nr_lez = int(result.groups(1)[0])
-    result = re.search(r"parte([\d]+)", fname)
-    if result is None:
-        print(f"WARNING: ignoro {fname}")
-        return None
-    nr_parte = int(result.groups(1)[0])
-    # print(f"lez: {nr_lez} parte: {nr_parte} fname: {fname}")
-    #nr_parte_lez = nr_lez+nr_parte
-    _ , file_extension = os.path.splitext(fname)
-
-    return nr_lez, nr_parte, file_extension
-
-
-
-def copia_vecchio_fname_nuovo(file_spreadsheet, source_dir, dest_dir, col_old_fname):
-
-    _ , valori = leggi_valori(file_spreadsheet, foglio, colonna_da_leggere, NR_RIGA_INIZIO_DATI)
-
-
-
-    if not os.path.isdir(source_dir):
-        print(f"non trovata dir {source_dir}")
-        return
-    old_files_dict = {}
-    for disk_fname in os.listdir(source_dir):
-        key = chiave_file(disk_fname)
-        if key is None:
-            continue
-        old_files_dict[key] = disk_fname
-
-
-    for index, row in valori.iterrows():
-        # for i in range(row.size): print(row.iloc[index], end= ", ")
-
-        fname_new = row[col_old_fname]
-        if pd.isnull(fname_new):  # Verifica se il valore non è vuoto
-           continue
-        tipo = row[NR_COL_TIPO_FILE]
-        if not tipo in FILES_ATTESI_L or pd.isnull(tipo):
-            print(f"'{tipo}' tipo file inatteso, ignoro")
-            continue
-        dest_fname = fname_new
-        if len(dest_fname.split(".")) < 2:
-            print("# file senza estensione, la aggiungo: {}")
-            dest_fname = dest_fname+"."+EXTS[tipo]
-            print("#"*5, f"file senza estensione, la aggiungo: {dest_fname}")
-        # print(f"file DEST trovato nello spreadsheet: {dest_fname}")
-        dest_fname = os.path.join(dest_dir, dest_fname)
-
-        fname_old = row[col_old_fname+11]
-        if pd.isnull(fname_old):  # Verifica se il valore non è vuoto
-           continue
-        chiave_file_old = chiave_file(fname_old)
-        # print(f"file Source trovato nello spreadsheet: {dest_fname}")
-        source_fname = os.path.join(source_dir,old_files_dict[chiave_file_old])
-        if not os.path.isfile(source_fname):
-            print(f"non trovato sorgente: {source_fname}")
-        # print(f"source: {source_fname}\ndestin: {dest_fname}\n")
-
-        # copia = f'copy "{source_fname}" "{dest_fname}"'
-        shutil.copy(source_fname, dest_fname)
-
-        
-
-#    return source_dest_l, missing_files_l, total_video_time_sec, files_trovati
-
 
 
 def controlla_presenza_files(file_spreadsheet, col_fname, source_dir):
@@ -316,8 +166,8 @@ def controlla_presenza_files(file_spreadsheet, col_fname, source_dir):
 
     print(f"analizzo {file_spreadsheet}")    
 
-    _ , valori = leggi_valori(file_spreadsheet, foglio, colonna_da_leggere, 
-                              NR_RIGA_INIZIO_DATI)
+    _ , valori = uxls.leggi_valori_da_sheet(file_spreadsheet, mdefs.SYMBOL, 
+        mdefs.COLONNA_DA_LEGGER, mdefs.NR_RIGA_INIZIO_DATI)
 
     for index, row in valori.iterrows():
         # for i in range(row.size): print(row.iloc[index], end= ", ")
@@ -331,14 +181,14 @@ def controlla_presenza_files(file_spreadsheet, col_fname, source_dir):
         fname = row[col_fname]
         if pd.isnull(fname):  # Verifica se il valore non è vuoto
            continue
-        tipo = row[NR_COL_TIPO_FILE]
-        if not tipo in FILES_ATTESI_L or pd.isnull(tipo):
+        tipo = row[mdefs.NR_COL_TIPO_FILE]
+        if not tipo in mdefs.FILES_ATTESI_L or pd.isnull(tipo):
             print(f"'{tipo}' tipo file inatteso, ignoro")
             continue
 
         if len(fname.split(".")) < 2:
             print("# file senza estensione, la aggiungo: {}")
-            fname = fname+"."+EXTS[tipo]
+            fname = fname+"."+mdefs.EXTS[tipo]
             print("#"*5, f"file senza estensione, la aggiungo: {fname}")
         # print(f"file DEST trovato nello spreadsheet: {dest_fname}")
         pathname = os.path.join(source_dir, fname)
@@ -358,8 +208,8 @@ def controlla_presenza_files(file_spreadsheet, col_fname, source_dir):
 def main():
 
     if True:
-        trovati, non_trovati, estranei = controlla_presenza_files(file_spreadsheet_pers,
-            NR_COL_FNAME, DIRECTORY)
+        trovati, non_trovati, estranei = controlla_presenza_files(mdefs.SCENEGGIATURA,
+            mdefs.NR_COL_FNAME, mdefs.DIRECTORY)
         print(f"trovati: {trovati} non trovati: {non_trovati}")
         print("files estranei:")
         for f in estranei:
@@ -367,10 +217,19 @@ def main():
             
 
     if True:
-        source_dest_l, missing_files_l, total_video_time_sec, trovati = elabora_spreadsheet_fnames(file_spreadsheet_pers, DIRECTORY, NR_COL_FNAME)
+        source_dest_l, missing_files_l, total_video_time_sec, trovati, durate = \
+            elabora_spreadsheet_fnames(mdefs.SCENEGGIATURA, mdefs.DIRECTORY, mdefs.NR_COL_FNAME)
         print(f"total video time: {total_video_time_sec}")
-    if True:    
-        post_proc(False, file_spreadsheet_pers, DIRECTORY_SOURCE_EV, source_dest_l, missing_files_l, total_video_time_sec)
+    
+
+    for i, lezione in enumerate(durate):
+        print(f"lez:{i:0>2}: durata {lezione[0]}")
+        lista_video = lezione[1]
+        for video, durata in lista_video:
+            print(f"durate: {round(durata,1):>5} {video}")        
+
+    if True:
+        post_proc(False, mdefs.SCENEGGIATURA, mdefs.DIRECTORY, source_dest_l, missing_files_l, total_video_time_sec)
     # copia da deliverare
     # source_dest_l, missing_files_l, total_video_time_sec = elabora_spreadsheet_fnames(file_spreadsheet_pers, DIRECTORY_SOURCE_DLV, 4)
     # post_proc(False, file_spreadsheet_dlv, DIRECTORY_SOURCE_DLV, source_dest_l, missing_files_l, total_video_time_sec)

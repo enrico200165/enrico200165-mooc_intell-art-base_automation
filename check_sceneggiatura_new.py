@@ -11,6 +11,7 @@ import utils_excel as uxls
 from PyPDF2 import PdfReader
 from moviepy.editor import VideoFileClip
 
+from logdef_local import log
 import module_defs as mdefs
 
 
@@ -44,6 +45,11 @@ def durata_video_min_sec(file_video):
 
 
 def elabora_spreadsheet_fnames(file_spreadsheet, source_dir, col_dest_fname):
+
+    if not os.path.isfile(file_spreadsheet):
+        log.error(f"non trovato spreadsheet {file_spreadsheet}")
+        exit(1)
+        
 
     titolo_corso, valori = uxls.leggi_valori_da_sheet(file_spreadsheet, mdefs.SYMBOL, 
         mdefs.COLONNA_DA_LEGGER, mdefs.NR_RIGA_INIZIO_DATI)
@@ -157,12 +163,13 @@ def controlla_presenza_files(file_spreadsheet, col_fname, source_dir):
 
     if not os.path.isdir(source_dir):
         print(f"non trovata dire {source_dir}")
-        return
+        exit(1)
+
     files_estranei_in_dir = set(os.listdir(source_dir))
 
     if not os.path.isfile(file_spreadsheet):
         print(f"non trovato spreadsheet {file_spreadsheet}")
-        return
+        exit(1)
 
     print(f"analizzo {file_spreadsheet}")    
 
@@ -210,10 +217,12 @@ def main():
     if True:
         trovati, non_trovati, estranei = controlla_presenza_files(mdefs.SCENEGGIATURA,
             mdefs.NR_COL_FNAME, mdefs.DIRECTORY)
-        print(f"trovati: {trovati} non trovati: {non_trovati}")
-        print("files estranei:")
-        for f in estranei:
-            print(f"estraneo: {f}")
+        if trovati is not None and non_trovati is not None:
+            print(f"trovati: {trovati} non trovati: {non_trovati}")
+            print("files estranei:")
+        if estranei is not None:
+            for f in estranei:
+                print(f"estraneo: {f}")
             
 
     if True:
@@ -221,12 +230,15 @@ def main():
             elabora_spreadsheet_fnames(mdefs.SCENEGGIATURA, mdefs.DIRECTORY, mdefs.NR_COL_FNAME)
         print(f"total video time: {total_video_time_sec}")
     
-
-    for i, lezione in enumerate(durate):
-        print(f"lez:{i:0>2}: durata {lezione[0]}")
-        lista_video = lezione[1]
-        for video, durata in lista_video:
-            print(f"durate: {round(durata,1):>5} {video}")        
+    if durate is not None:
+        for i, lezione in enumerate(durate):
+            print("-"*50+f"lez:{i:0>2}: durata {round(lezione[0],2)}")
+            lista_video = lezione[1]
+            for video, durata in lista_video:
+                if durata > 5:
+                    print(f"ECCESSIVO: {round(durata,1):>5} {video[ 46:]}")        
+                else:
+                    print(f"durate: {round(durata,1):>5} {video[ 46:]}")        
 
     if True:
         post_proc(False, mdefs.SCENEGGIATURA, mdefs.DIRECTORY, source_dest_l, missing_files_l, total_video_time_sec)

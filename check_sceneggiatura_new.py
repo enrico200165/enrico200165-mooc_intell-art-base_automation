@@ -1,7 +1,7 @@
+import sys
+import os
 import regex as re
 import pandas as pd
-import os
-import time
 
 import datetime
 
@@ -13,7 +13,13 @@ from moviepy.editor import VideoFileClip
 
 from logdef_local import log
 import module_defs as mdefs
+import h5p_video as h5
 
+
+def titolo_from_file(fname):
+    ret = fname.split(sep = "_")
+    ret = ret[3]+" - "+ret[4]
+    return ret
 
 def numero_pagine_pdf(file_pdf):
     # Funzione per ottenere il numero di pagine di un file PDF
@@ -76,12 +82,12 @@ def elabora_spreadsheet_fnames(file_spreadsheet, source_dir, col_dest_fname):
 
         tipo = row[mdefs.NR_COL_TIPO_FILE]
         if not tipo in mdefs.FILES_ATTESI_L or pd.isnull(tipo):
-            print(f"'{tipo}' tipo file inatteso, ignoro")
+            print(f"'{tipo}' tipo file inatteso, ignoro {fname_no_ext}")
             continue
 
         source_fname = fname_no_ext
         if len(source_fname.split(".")) < 2:
-            print("# file senza estensione, la aggiungo: {}")
+            print("# file senza estensione, la aggiungo: {source_fname}")
             source_fname = source_fname+"."+mdefs.EXTS[tipo]
             print("#"*5, f"file senza estensione, la aggiungo: {source_fname}")
 
@@ -143,7 +149,7 @@ def post_proc(copia_files, file_spreadsheet, source_dir, source_dest_l, missing_
         print("OK, trovati tutti i files")
         for s,d in source_dest_l:
             source = os.path.join(source_dir,s)
-            dest = os.path.join(mdefs.DIRECTORY,d)
+            dest = os.path.join(mdefs.DLV_DIR,d)
             if copia_files:
                 print(f"copy {s} -> {d}")
                 print(f"\nCOPIO\n{source} -> \n{dest}")
@@ -203,55 +209,78 @@ def controlla_presenza_files(file_spreadsheet, col_fname, source_dir):
         if not os.path.isfile(pathname):
             print("\n"+"#"*10+f" {index}-esimo ERRORE non trovato: \n{os.path.basename(pathname)}"+"\n")
             nr_file_non_trovati += 1
-        else:
-            # print(f"{index}- ok trovato: {dest_fname}")
-            nr_file_trovati += 1
-            if fname in files_estranei_in_dir:
-                files_estranei_in_dir.remove(fname)
+            continue
+
+        # print(f"{index}- ok trovato: {dest_fname}")
+        nr_file_trovati += 1
+
+        if tipo.lower() == "video":
+            titolo = titolo_from_file(fname)
+            video_pathname = os.path.join(mdefs.OUT_DIR, fname)
+            zip_filename = os.path.join(mdefs.OUT_DIR, fname.replace(".mp4", ".h5p"))
+            h5.zip_directory(mdefs.OUT_DIR, titolo, pathname, zip_filename)
+
+        if fname in files_estranei_in_dir:
+            files_estranei_in_dir.remove(fname)
 
     return nr_file_trovati, nr_file_non_trovati, files_estranei_in_dir
 
 
 def main():
 
-    if True:
-        trovati, non_trovati, estranei = controlla_presenza_files(mdefs.SCENEGGIATURA,
-            mdefs.NR_COL_FNAME, mdefs.DIRECTORY)
-        if trovati is not None and non_trovati is not None:
-            print(f"trovati: {trovati} non trovati: {non_trovati}")
-            print("files estranei:")
-        if estranei is not None:
-            for f in estranei:
-                print(f"estraneo: {f}")
-            
+    try:
+        if True:
+            trovati, non_trovati, estranei = controlla_presenza_files(mdefs.SCENEGGIATURA,
+                mdefs.NR_COL_FNAME, mdefs.DLV_DIR)
+            if trovati is not None and non_trovati is not None:
+                print(f"trovati: {trovati} non trovati: {non_trovati}")
+                print("files estranei:")
+            if estranei is not None:
+                for f in estranei:
+                    print(f"estraneo: {f}")
+                
 
-    if True:
-        source_dest_l, missing_files_l, total_video_time_sec, trovati, durate = \
-            elabora_spreadsheet_fnames(mdefs.SCENEGGIATURA, mdefs.DIRECTORY, mdefs.NR_COL_FNAME)
-        print(f"total video time: {total_video_time_sec}")
-    
-    if durate is not None:
-        for i, lezione in enumerate(durate):
-            print("-"*50+f"lez:{i:0>2}: durata {round(lezione[0],2)}")
-            lista_video = lezione[1]
-            for video, durata in lista_video:
-                if durata > 5:
-                    print(f"ECCESSIVO: {round(durata,1):>5} {video[ 46:]}")        
-                else:
-                    print(f"durate: {round(durata,1):>5} {video[ 46:]}")        
+        if True:
+            source_dest_l, missing_files_l, total_video_time_sec, trovati, durate = \
+                elabora_spreadsheet_fnames(mdefs.SCENEGGIATURA, mdefs.DLV_DIR, mdefs.NR_COL_FNAME)
+            print(f"total video time: {total_video_time_sec}")
+        
+        if durate is not None:
+            for i, lezione in enumerate(durate):
+                print("-"*50+f"lez:{i:0>2}: durata {round(lezione[0],2)}")
+                lista_video = lezione[1]
+                for video, durata in lista_video:
+                    if durata > 10:
+                        print(f"ECCESSIVO: {round(durata,1):>5} {video[ 46:]}")        
+                    else:
+                        print(f"durate: {round(durata,1):>5} {video[ 46:]}")        
 
-    if True:
-        post_proc(False, mdefs.SCENEGGIATURA, mdefs.DIRECTORY, source_dest_l, missing_files_l, total_video_time_sec)
-    # copia da deliverare
-    # source_dest_l, missing_files_l, total_video_time_sec = elabora_spreadsheet_fnames(file_spreadsheet_pers, DIRECTORY_SOURCE_DLV, 4)
-    # post_proc(False, file_spreadsheet_dlv, DIRECTORY_SOURCE_DLV, source_dest_l, missing_files_l, total_video_time_sec)
+        if True:
+            post_proc(False, mdefs.SCENEGGIATURA, mdefs.DLV_DIR, source_dest_l, missing_files_l, total_video_time_sec)
+        # copia da deliverare
+        # source_dest_l, missing_files_l, total_video_time_sec = elabora_spreadsheet_fnames(file_spreadsheet_pers, DIRECTORY_SOURCE_DLV, 4)
+        # post_proc(False, file_spreadsheet_dlv, DIRECTORY_SOURCE_DLV, source_dest_l, missing_files_l, total_video_time_sec)
 
-    # print(f"files trovati: {trovati}")
-
+        # print(f"files trovati: {trovati}")
+    except Exception as e:
+        e_type, e_object, e_traceback = sys.exc_info()
+        e_filename = os.path.split(e_traceback.tb_frame.f_code.co_filename)[1]
+        e_message = str(e)
+        e_line_number = e_traceback.tb_lineno
+        print(f'exception type: {e_type}')
+        print(f'exception filename: {e_filename}')
+        print(f'exception line number: {e_line_number}')
+        print(f'exception message: {e_message}')
 
 if __name__ == "__main__":
     try:
         main()
-    except Exception as exc:
-        print(exc)
-        pass
+    except Exception as e:
+        e_type, e_object, e_traceback = sys.exc_info()
+        e_filename = os.path.split(e_traceback.tb_frame.f_code.co_filename)[1]
+        e_message = str(e)
+        e_line_number = e_traceback.tb_lineno
+        print(f'exception type: {e_type}')
+        print(f'exception filename: {e_filename}')
+        print(f'exception line number: {e_line_number}')
+        print(f'exception message: {e_message}')

@@ -1,6 +1,7 @@
 
 import os
 import pandas as pd
+import module_defs as mdefs
 
 
 def leggi_valori_da_sheet(nome_file, nome_foglio, colonna, riga_iniziale):
@@ -16,6 +17,6 @@ def leggi_valori_da_sheet(nome_file, nome_foglio, colonna, riga_iniziale):
 
     # Seleziona i valori della colonna specificata
     valori_colonna = df.iloc[riga_iniziale:, :]
-    titolo = df.iloc[2][1]
+    titolo = df.iloc[2][mdefs.NR_COL_OFFSET+1]
 
     return titolo, valori_colonna

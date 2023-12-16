@@ -163,25 +163,26 @@ def post_proc(copia_files, file_spreadsheet, source_dir, source_dest_l, missing_
     print(f"{file_spreadsheet} spreadsheet")
 
 
-def controlla_presenza_files(file_spreadsheet, col_fname, source_dir):
+def controlla_scenografia(file_spreadsheet, col_fname, source_dir):
 
     nr_file_trovati = nr_file_non_trovati = 0
+    source_dest_l = []; missing_files_l = []
 
     if not os.path.isdir(source_dir):
         print(f"non trovata dire {source_dir}")
         exit(1)
-
-    files_estranei_in_dir = set(os.listdir(source_dir))
-
     if not os.path.isfile(file_spreadsheet):
         print(f"non trovato spreadsheet {file_spreadsheet}")
         exit(1)
 
+    # assumiamo siano tutti estranei, rimuoviamo non estranei
+    files_estranei_l = set(os.listdir(source_dir))
     print(f"analizzo {file_spreadsheet}")    
 
-    _ , valori = uxls.leggi_valori_da_sheet(file_spreadsheet, mdefs.SYMBOL, 
+    titolo_corso , valori = uxls.leggi_valori_da_sheet(file_spreadsheet, mdefs.SYMBOL, 
         mdefs.COLONNA_DA_LEGGER, mdefs.NR_RIGA_INIZIO_DATI)
-
+    durate_video_lezioni = []; total_video_time_sec = 0
+    nr_lezione = 0; nr_lezione_prec = -1
     for index, row in valori.iterrows():
         # for i in range(row.size): print(row.iloc[index], end= ", ")
 
@@ -189,11 +190,15 @@ def controlla_presenza_files(file_spreadsheet, col_fname, source_dir):
             continue
 
         if row[0] is not None and type(row[0]) == str and len(str(row[0])) > 0:
-            lezione = int(row[0])
+            nr_lezione = int(row[0])
+        if nr_lezione > nr_lezione_prec:
+            durate_video_lezioni.append([0,[]])
+            nr_lezione_prec = nr_lezione
 
         fname = row[col_fname]
         if pd.isnull(fname):  # Verifica se il valore non è vuoto
            continue
+
         tipo = row[mdefs.NR_COL_TIPO_FILE]
         if not tipo in mdefs.FILES_ATTESI_L or pd.isnull(tipo):
             print(f"'{tipo}' tipo file inatteso, ignoro")
@@ -214,35 +219,63 @@ def controlla_presenza_files(file_spreadsheet, col_fname, source_dir):
         # print(f"{index}- ok trovato: {dest_fname}")
         nr_file_trovati += 1
 
-        if tipo.lower() == "video":
+        # lista coppie (fname sorgente/originario , fname pulito/destinazione)
+        fname_no_ext = os.path.splitext(fname)[0]
+        components = fname_no_ext.split(mdefs.SEP_FNAME)
+        # for c in components: print(c, end = ", ")
+        lezione_long =components[1]
+        lezione = lezione_long.split("-")[0]
+        parte_long   = components[2]
+        parte = parte_long.split("-")[0]
+        # print(f"{lezione_long} , {lezione} {parte_long} , {parte}")
+        fname_short = titolo_corso+mdefs.SEP_FNAME+lezione+mdefs.SEP_FNAME+parte+"."+mdefs.EXTS[tipo]
+        # print(f"\n\n{source_fname}\n{fname_short}")
+        source_dest_l.append( [fname, fname_short] )
+
+
+
+        if fname.endswith(".pdf"):
+            numero_pagine = numero_pagine_pdf(pathname)
+            # print(f"Il file '{fname_no_ext}' è un PDF con {numero_pagine} pagine.")
+        elif fname.endswith((".mp4", ".avi", ".mov")):
+            assert(tipo.lower() == "video")
+            minuti = durata_video_min_sec(pathname)
+            total_video_time_sec += minuti
+            durate_video_lezioni[-1][0] += minuti # totale lezione
+            durate_video_lezioni[-1][1].append((fname, minuti))
+
             titolo = titolo_from_file(fname)
-            video_pathname = os.path.join(mdefs.OUT_DIR, fname)
             zip_filename = os.path.join(mdefs.OUT_DIR, fname.replace(".mp4", ".h5p"))
             h5.zip_directory(mdefs.OUT_DIR, titolo, pathname, zip_filename)
 
-        if fname in files_estranei_in_dir:
-            files_estranei_in_dir.remove(fname)
 
-    return nr_file_trovati, nr_file_non_trovati, files_estranei_in_dir
+        # non è estraneo
+        if fname in files_estranei_l:
+            files_estranei_l.remove(fname)
+
+    for lez, durata in enumerate(durate_video_lezioni):
+        print(f"lez {lez} durate {durata[0]}")
+
+
+    # return nr_file_trovati, nr_file_non_trovati, files_estranei_in_dir
+    return source_dest_l, missing_files_l, files_estranei_l, total_video_time_sec, nr_file_trovati, durate_video_lezioni
+
 
 
 def main():
 
     try:
         if True:
-            trovati, non_trovati, estranei = controlla_presenza_files(mdefs.SCENEGGIATURA,
-                mdefs.NR_COL_FNAME, mdefs.DLV_DIR)
-            if trovati is not None and non_trovati is not None:
-                print(f"trovati: {trovati} non trovati: {non_trovati}")
+            # trovati, non_trovati, estranei = controlla_scenografia(mdefs.SCENEGGIATURA,
+            source_dest_l, missing_files_l, files_estranei_l, total_video_time_sec, trovati, durate = \
+                controlla_scenografia(mdefs.SCENEGGIATURA,mdefs.NR_COL_FNAME, mdefs.DLV_DIR)
+            if missing_files_l is not None and len(missing_files_l) > 0:
+                print(f"non trovati: {len(missing_files_l)} files")
+            if files_estranei_l is not None:
                 print("files estranei:")
-            if estranei is not None:
-                for f in estranei:
+                for f in files_estranei_l:
                     print(f"estraneo: {f}")
-                
 
-        if True:
-            source_dest_l, missing_files_l, total_video_time_sec, trovati, durate = \
-                elabora_spreadsheet_fnames(mdefs.SCENEGGIATURA, mdefs.DLV_DIR, mdefs.NR_COL_FNAME)
             print(f"total video time: {total_video_time_sec}")
         
         if durate is not None:
@@ -251,7 +284,7 @@ def main():
                 lista_video = lezione[1]
                 for video, durata in lista_video:
                     if durata > 10:
-                        print(f"ECCESSIVO: {round(durata,1):>5} {video[ 46:]}")        
+                        print(f"ECCESS: {round(durata,1):>5} {video[ 46:]}")        
                     else:
                         print(f"durate: {round(durata,1):>5} {video[ 46:]}")        
 

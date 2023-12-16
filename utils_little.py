@@ -45,6 +45,7 @@ def copia_file(file_origine, directory_destinazione, simula = True):
     if simula:
         print(f"simulo copia file: {file_origine} in directory: {directory_destinazione}")
         return True
+    
     try:
         shutil.copy(file_origine, directory_destinazione)
         return True

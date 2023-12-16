@@ -12,6 +12,8 @@ SCENEGGIATURA = os.path.join(DLV_DIR,"00_Sceneggiatura_MOOC_IA_aspetti-pratici.x
 SYMBOL = "Int. artific. aspetti pratici"
 
 NR_COL_OFFSET = 3
+NR_COL_NR_LEZ = NR_COL_OFFSET+0
+NR_COL_TTL_LEZ = NR_COL_NR_LEZ+1
 
 # "Nome File ([nomeCorso]_lez[NumLezione]_parte[NumParte])"
 COLONNA_DA_LEGGER = 3
